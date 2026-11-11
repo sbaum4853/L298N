@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PWM Gets Wheels — PWM Part 2 with the L298N</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e1115; --panel:#161b22; --panel2:#1d232c; --line:#2a323d;
+  --ink:#e9edf2; --dim:#9aa6b4; --green:#5cff9d; --green-d:#1e6b44;
+  --red:#ff4a4a; --amber:#ffb347; --blue:#6cb6ff;
+  --sans:"Space Grotesk",system-ui,-apple-system,Segoe UI,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:center center;background:var(--bg)}
+.slide{position:absolute;inset:0;padding:34px 52px 74px;display:none;flex-direction:column}
+.slide.active{display:flex}
+.top{display:flex;align-items:center;gap:14px;min-height:28px}
+.kicker{font:600 14px var(--mono);color:var(--green);letter-spacing:.08em;text-transform:uppercase}
+.badge{margin-left:auto;font:600 13px var(--mono);background:#3a2a10;color:var(--amber);border:1px solid #6b4a17;border-radius:999px;padding:5px 12px;white-space:nowrap}
+.badge+.badge{margin-left:0}
+.badge.teach{background:#3a1414;color:#ff8a8a;border-color:#6b2020}
+h1{font-size:84px;line-height:.95;margin:16px 0 18px;letter-spacing:-.02em}
+h2{font-size:36px;margin:6px 0 14px;line-height:1.1;letter-spacing:-.01em}
+h3{font-size:19px;margin:0 0 8px;color:var(--green);font-weight:600}
+p{font-size:18.5px;line-height:1.45;margin:0 0 10px}
+li{font-size:18px;line-height:1.4;margin:3px 0}
+ul,ol{margin:0 0 10px;padding-left:24px}
+b{color:#fff}
+.dim{color:var(--dim)}
+.mono{font-family:var(--mono)}
+.big{font-size:22px}
+.cols{display:grid;gap:24px;flex:1;min-height:0}
+.c2{grid-template-columns:1fr 1fr}
+.cL{grid-template-columns:400px 1fr}
+.cR{grid-template-columns:1fr 520px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.paper{background:#f4f1ea;border-radius:14px;padding:6px;display:flex;align-items:center;justify-content:center}
+.paper svg{width:100%;height:auto;display:block}
+.callout{background:var(--panel2);border-left:4px solid var(--amber);padding:9px 13px;border-radius:8px;font-size:16.5px;line-height:1.4;margin:8px 0}
+.callout.stop{border-left-color:var(--red)}
+.callout.go{border-left-color:var(--green)}
+.ws{display:inline-block;font:600 12px var(--mono);color:var(--amber)}
+code,.k2{font-family:var(--mono);font-size:.92em;background:#0a0d11;border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.codewrap{position:relative;min-height:0}
+pre.code{margin:0;padding-top:30px!important;font:13.2px/1.36 var(--mono);background:#0a0d11;border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;white-space:pre;color:#d7dde4;max-height:100%}
+pre.code .c{color:#6f7d8c;font-style:italic}
+pre.code .k{color:#ff9fd0}
+pre.code .f{color:#6cb6ff}
+pre.code .n{color:#ffb347}
+pre.code .v{color:#5cff9d}
+.copy{position:absolute;top:8px;right:10px;font:600 12px var(--mono);background:var(--green-d);color:#fff;border:1px solid var(--green);border-radius:6px;padding:4px 10px;cursor:pointer}
+.btn{font:600 13.5px var(--mono);background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer}
+.btn:hover{border-color:var(--dim)}
+.btn.on{border-color:var(--green);color:var(--green)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=range]{width:100%;accent-color:var(--green);height:26px}
+.readout{font:600 15px var(--mono)}
+.readout span{color:var(--green)}
+table.pins{border-collapse:collapse;width:100%;font-size:16.5px}
+table.pins th,table.pins td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left}
+table.pins th{font:600 12px var(--mono);color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+table.pins td.m{font-family:var(--mono);font-weight:600}
+.dot{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+.partgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.part{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.part b{display:block;font-size:17px;margin-bottom:3px}
+.part span{font-size:14.5px;color:var(--dim);line-height:1.35;display:block}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.steps div{border:1px dashed var(--line);border-radius:10px;padding:9px 12px;font-size:15px;color:var(--dim)}
+.steps div b{color:var(--green);font-family:var(--mono);font-size:13px;display:block}
+canvas{display:block;width:100%;border-radius:10px;background:#0a0d11;border:1px solid var(--line)}
+.hot{cursor:pointer;fill:rgba(92,255,157,0);stroke:rgba(92,255,157,.0);stroke-width:2}
+.hot:hover{fill:rgba(92,255,157,.18);stroke:rgba(92,255,157,.8)}
+.hot.sel{fill:rgba(255,179,71,.25);stroke:var(--amber)}
+.zone{display:flex;height:16px;border-radius:5px;overflow:hidden;font:600 10.5px var(--mono);margin-top:2px}
+.zone div{display:flex;align-items:center;justify-content:center;color:#0e1115}
+#nav{position:absolute;left:0;right:0;bottom:0;height:54px;display:flex;align-items:center;gap:14px;padding:0 22px;border-top:1px solid var(--line);background:#0b0e12}
+#nav .count{font:600 15px var(--mono);color:var(--dim);min-width:120px}
+#nav .count b{color:var(--green)}
+#prog{flex:1;height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+#prog div{height:100%;background:var(--green);width:0}
+#nav .hint{font:12px var(--mono);color:var(--dim)}
+#notes{position:fixed;left:0;right:0;bottom:0;max-height:42vh;overflow:auto;background:#1a1408;border-top:2px solid var(--amber);color:#f5e6c8;font:16px/1.5 var(--sans);padding:14px 24px 18px;display:none;z-index:50}
+#notes h4{margin:0 0 6px;font:600 13px var(--mono);color:var(--amber);letter-spacing:.06em}
+#notes.show{display:block}
+.slidenum{font:600 13px var(--mono);color:#0e1115;background:var(--green);border-radius:6px;padding:3px 8px}
+.qa{display:flex;flex-direction:column;gap:12px}
+.qa div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;font-size:21px}
+.qa div b{color:var(--amber);font-family:var(--mono);margin-right:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{transform-box:fill-box;transform-origin:center;animation:spin 1.1s linear infinite}
+.spin.slow{animation-duration:2.6s}
+</style>
+</head>
+<body>
+<div id="stage">
+
+<!-- ============ 1 TITLE ============ -->
+<section class="slide" data-notes="TIMING FOR THE HOUR (self-paced; they work through the deck):
+0–5 min: slides 1–3 (recap + mission).
+5–10: slides 4–5 (L298N tour, power plan).
+10–25: slides 6–8 build, then YOUR wiring check (teacher initials) before any battery goes on.
+25–30: slide 9 direction test.
+30–38: slides 10–11 PWM by hand.
+38–50: slides 12–15 analogWrite, the knob, start/stop numbers.
+50–56: slides 16–17 steering + what changes on the car.
+56–60: slide 18 exit ticket. Slide 19 is a bonus for early finishers.
+Power plan today: Arduino on USB, 12 V pack powers only the motors through the L298N, grounds shared on the breadboard − rail. Slide 17 shows the car version (one 12 V pack runs everything through VIN).">
+  <div class="top"><span class="kicker">Robotics 1 · Robot Car Circuit · PWM Part 2</span></div>
+  <div class="cols cR" style="align-items:center">
+    <div>
+      <h1>PWM Gets<br>Wheels</h1>
+      <p class="big" style="max-width:640px">Last time you dimmed an LED by blinking it faster than your eye can see. Today the same trick sets the speed of <b>two motors</b>.</p>
+      <p class="big" style="max-width:640px">And the circuit you build today is <b>the circuit that goes on your robot car</b>.</p>
+      <div class="callout go" style="max-width:640px;margin-top:16px">Keep your worksheet next to you. When a slide has an <span class="ws">orange Checkpoint tag</span>, stop and answer that question before you move on.</div>
+    </div>
+    <div class="card" style="padding:10px">
+      <svg viewBox="0 0 500 360" style="width:100%">
+        <text x="20" y="34" fill="#9aa6b4" font-family="JetBrains Mono, monospace" font-size="14">pin 5 → ENA</text>
+        <polyline fill="none" stroke="#ffb347" stroke-width="4" stroke-linejoin="round"
+          points="20,110 20,60 60,60 60,110 90,110 90,60 130,60 130,110 160,110 160,60 200,60 200,110 230,110 230,60 270,60 270,110 300,110 300,60 340,60 340,110 370,110 370,60 410,60 410,110 440,110 440,60 480,60 480,110"/>
+        <path d="M250 130 L250 170" stroke="#5cff9d" stroke-width="3" marker-end="url(#ah)"/>
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5cff9d"/></marker></defs>
+        <rect x="150" y="200" width="200" height="80" rx="10" fill="#1d232c" stroke="#2a323d"/>
+        <text x="250" y="246" text-anchor="middle" fill="#e9edf2" font-family="Space Grotesk, sans-serif" font-size="20" font-weight="700">robot car</text>
+        <g class="spin"><circle cx="150" cy="290" r="44" fill="#222" stroke="#444" stroke-width="6"/><line x1="150" y1="250" x2="150" y2="330" stroke="#5cff9d" stroke-width="5"/><line x1="110" y1="290" x2="190" y2="290" stroke="#5cff9d" stroke-width="5"/></g>
+        <g class="spin"><circle cx="350" cy="290" r="44" fill="#222" stroke="#444" stroke-width="6"/><line x1="350" y1="250" x2="350" y2="330" stroke="#5cff9d" stroke-width="5"/><line x1="310" y1="290" x2="390" y2="290" stroke="#5cff9d" stroke-width="5"/></g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 RECAP ============ -->
+<section class="slide" data-notes="Recap of the LED lesson. The new idea: a motor 'averages' with its weight (momentum) the way an eye averages with persistence of vision. Don't mention the wave test as done; they didn't get to it. Checkpoint 1 answer: 64 out of 255 ≈ 25%.">
+  <div class="top"><span class="kicker">Recap · Last lesson in one slide</span><span class="badge">Worksheet · Checkpoint 1</span></div>
+  <h2>Same wave, new job</h2>
+  <div class="cols c2">
+    <div>
+      <p><b>PWM</b> = switching fully ON and fully OFF, very fast. The percent of time it's ON is the <b>duty cycle</b>.</p>
+      <p>Your eye couldn't keep up with the LED's blinking, so it saw the <b>average</b>: "dim."</p>
+      <p>A motor can't keep up either. It's heavy, so it can't stop and start hundreds of times a second. It settles at an <b>in-between speed</b>.</p>
+      <table class="pins" style="margin-top:6px">
+        <tr><th>analogWrite value</th><th>Duty cycle</th><th>Motor</th></tr>
+        <tr><td class="m">0</td><td>0% (always off)</td><td>stopped</td></tr>
+        <tr><td class="m">128</td><td>about 50%</td><td>about half speed</td></tr>
+        <tr><td class="m">255</td><td>100% (always on)</td><td>full speed</td></tr>
+      </table>
+      <div class="callout">Drag the slider. The LED and the wheel get the <b>same</b> wave.</div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <canvas id="recapCv" width="1040" height="300"></canvas>
+      <div class="readout">analogWrite(pin, <span id="recapV">128</span>) → duty <span id="recapD">50</span>%</div>
+      <input type="range" id="recapS" min="0" max="255" value="128">
+      <div style="display:flex;justify-content:space-around;align-items:center">
+        <svg viewBox="0 0 120 120" width="120"><circle id="recapLed" cx="60" cy="60" r="34" fill="#ff4a4a" opacity=".5"/><circle cx="60" cy="60" r="34" fill="none" stroke="#555" stroke-width="3"/><text x="60" y="116" text-anchor="middle" fill="#9aa6b4" font-size="13" font-family="JetBrains Mono, monospace">LED</text></svg>
+        <svg viewBox="0 0 120 120" width="120"><g id="recapWheel"><circle cx="60" cy="56" r="42" fill="#222" stroke="#555" stroke-width="6"/><line x1="60" y1="18" x2="60" y2="94" stroke="#5cff9d" stroke-width="5"/><line x1="22" y1="56" x2="98" y2="56" stroke="#5cff9d" stroke-width="5"/></g><text x="60" y="116" text-anchor="middle" fill="#9aa6b4" font-size="13" font-family="JetBrains Mono, monospace">motor</text></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 MISSION ============ -->
+<section class="slide" data-notes="Hand out parts here. Male-to-female jumpers are needed for the six signal wires (the L298N header pins are male). Have small screwdrivers at each table for the screw terminals. Battery packs should be switched OFF or have one cell out until the wiring check on slide 8.">
+  <div class="top"><span class="kicker">Today's mission</span></div>
+  <h2>Build the car's circuit. Then make it obey a knob.</h2>
+  <div class="partgrid">
+    <div class="part"><b>Arduino Uno</b><span>+ USB cable. The brain. Powered by your laptop today.</span></div>
+    <div class="part"><b>L298N motor driver</b><span>Two H-bridges on one board. The muscle.</span></div>
+    <div class="part"><b>2 TT motors</b><span>The yellow gearbox motors. Motor A = left, Motor B = right.</span></div>
+    <div class="part"><b>12 V battery pack</b><span>8 × AA. Powers the motors only (today).</span></div>
+    <div class="part"><b>Breadboard</b><span>Today it's just the ground hub and a home for the knob.</span></div>
+    <div class="part"><b>Potentiometer</b><span>Your knob from last time. 10K or 100K both work.</span></div>
+    <div class="part"><b>Jumper wires</b><span>6 male-to-female + a few male-to-male.</span></div>
+    <div class="part"><b>Small screwdriver</b><span>For the blue screw terminals.</span></div>
+  </div>
+  <div class="steps">
+    <div><b>SLIDES 4–5</b>Meet the L298N and the power plan</div>
+    <div><b>SLIDES 6–8</b>Build: motors → battery → six signal wires</div>
+    <div><b>SLIDES 9–12</b>Direction test, then PWM by hand, then analogWrite</div>
+    <div><b>SLIDES 13–17</b>The knob, the starting line, steering, the car</div>
+  </div>
+  <div class="callout" style="margin-top:14px">On the car, the breadboard and knob go away, but <b>the motor wires and the six signal wires stay exactly the same</b>. Build them carefully today and you've already wired half your car.</div>
+</section>
+
+<!-- ============ 4 L298N TOUR ============ -->
+<section class="slide" data-notes="Have them physically find each part on their own board as they click. The ENA/ENB caps: parking a cap on ONE pin is the standard trick so it doesn't get lost (it connects nothing that way). Checkpoint 2 answer: with the cap on, ENA is tied to 5 V = always HIGH = 100% duty = full speed, which is why it has to come off for PWM. Some boards label +12V as VCC or VMS.">
+  <div class="top"><span class="kicker">Step 1 · Meet the L298N</span><span class="badge">Worksheet · Checkpoint 2</span></div>
+  <h2>Click each part of the board</h2>
+  <div class="cols cR">
+    <div class="paper"><svg id="tourSvg" viewBox="440 26 290 236"></svg></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="card" style="min-height:250px">
+        <h3 id="tourT">Click a part →</h3>
+        <p id="tourB" style="font-size:17.5px">Every part of the L298N you'll use today is clickable. Find each one on <b>your</b> board too.</p>
+      </div>
+      <div class="callout stop"><b>Do this now:</b> find the two little black jumper caps on <b>ENA</b> and <b>ENB</b>. Pull them off. Park each one on a <b>single pin</b> (so it connects nothing) or put them in your bag.</div>
+      <div class="callout">Why did they have to come off? Click <b>ENA</b> to find out, then answer Checkpoint 2.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 POWER PLAN ============ -->
+<section class="slide" data-notes="This is the most important safety slide. Two power sources, one shared ground. Checkpoint 3 answer: B, so the L298N knows what HIGH and LOW mean (HIGH is measured from ground). USB 2.0 ports supply about 500 mA; two TT motors starting at once can pull more than that and brown out the Arduino.">
+  <div class="top"><span class="kicker">Step 2 · Power plan for today</span><span class="badge">Worksheet · Checkpoint 3</span></div>
+  <h2>Two jobs: a brain and some muscle</h2>
+  <div class="cols cL">
+    <div>
+      <p><b>Brain power:</b> your laptop powers the Arduino through USB.</p>
+      <p><b>Muscle power:</b> the 12 V pack powers the motors through the L298N.</p>
+      <div class="callout go"><b>Rule 1. Grounds are connected.</b> HIGH means "5 V above ground." If the L298N and the Arduino don't share a ground, the L298N can't tell what HIGH is.</div>
+      <div class="callout stop"><b>Rule 2. 12 V never touches the breadboard or the Arduino's 5V pin.</b> 12 V into a 5 V pin = a dead Arduino.</div>
+      <div class="callout"><b>Rule 3. Battery OFF while you wire.</b> It goes on after your teacher checks your wiring.</div>
+      <p class="dim" style="font-size:15.5px">Why not run the motors from the Arduino? A USB port gives about 0.5 amps. Two motors starting at once can pull more than that and reset your Arduino.</p>
+    </div>
+    <div class="paper"><svg id="powerToday" viewBox="0 0 640 400"></svg></div>
+  </div>
+</section>
+
+<!-- ============ 6 BUILD A MOTORS ============ -->
+<section class="slide" data-notes="Screw terminals: loosen 2–3 turns counter-clockwise, insert the bare wire end, tighten, tug. A tug test now saves a dead motor on the car later. Which motor wire goes in which terminal doesn't matter yet; direction gets fixed on slide 9.">
+  <div class="top"><span class="kicker">Step 3 · Build A · Motors</span><span class="slidenum">NEW: highlighted</span></div>
+  <h2>Motors into the screw terminals</h2>
+  <div class="cols cL">
+    <div>
+      <ol>
+        <li>Loosen the screws on <b>OUT1</b> and <b>OUT2</b> (counter-clockwise, 2–3 turns).</li>
+        <li>Put Motor A's two wires into <b>OUT1</b> and <b>OUT2</b>. Tighten.</li>
+        <li><b>Tug test.</b> A wire that pulls out today will pull out on the car.</li>
+        <li>Motor B's wires go into <b>OUT3</b> and <b>OUT4</b>. Tighten and tug.</li>
+        <li>Mark Motor A with tape or marker: <b>A (left)</b>.</li>
+      </ol>
+      <div class="callout">Don't worry about which wire goes in which hole. If a motor spins backward, you'll fix it on slide 9.</div>
+    </div>
+    <div class="paper"><svg class="circuit" data-step="1" viewBox="20 34 870 540"></svg></div>
+  </div>
+</section>
+
+<!-- ============ 7 BUILD B POWER ============ -->
+<section class="slide" data-notes="Two wires share the GND screw terminal: the battery's black wire and a male-to-male jumper to the breadboard − rail. Insert both, then tighten. The 5V-EN jumper (next to the power terminal) stays ON for a 12 V supply; it powers the L298N's own logic. +5V terminal stays empty today. If the battery pack has no switch, leave one AA out until the wiring check.">
+  <div class="top"><span class="kicker">Step 3 · Build B · Battery and ground</span><span class="slidenum">NEW: highlighted</span></div>
+  <h2>Battery in, grounds together</h2>
+  <div class="cols cL">
+    <div>
+      <ol>
+        <li>Battery pack <b>OFF</b> (or leave one AA out).</li>
+        <li>Battery <span style="color:#ff6b6b"><b>red</b></span> → <b>+12V</b> terminal. Battery <b>black</b> → <b>GND</b> terminal.</li>
+        <li>A male-to-male jumper goes into the <b>same GND terminal</b>. Its other end goes in the breadboard's <span style="color:var(--blue)"><b>− rail</b></span>.</li>
+        <li>Arduino <b>GND</b> → the same <b>− rail</b>.</li>
+        <li><b>+5V terminal: leave it empty.</b> 5V-EN jumper: leave it on.</li>
+      </ol>
+      <div class="callout">Two wires in one screw terminal: put both in, <b>then</b> tighten. Tug-test both.</div>
+      <div class="callout go">That − rail is now the <b>common ground</b> from slide 5.</div>
+    </div>
+    <div class="paper"><svg class="circuit" data-step="2" viewBox="20 34 870 540"></svg></div>
+  </div>
+</section>
+
+<!-- ============ 8 BUILD C SIGNALS ============ -->
+<section class="slide" data-notes="Pins 5 and 6 for ENA/ENB on purpose: they're PWM pins (~) on Timer0, so they keep working later when the car gets a servo (the Servo library takes over PWM on 9 and 10) or an IR receiver (IRremote usually takes Timer2: pins 3 and 11). Pins 9 and 10 are fine here because IN3/IN4 only need digitalWrite. TEACHER CHECK before any battery goes on: ENA→5, IN1→7, IN2→8, IN3→9, IN4→10, ENB→6, Arduino GND and L298N GND both on the − rail, nothing on +5V, no 12 V on the breadboard.">
+  <div class="top"><span class="kicker">Step 3 · Build C · Six signal wires</span><span class="badge">Worksheet · Checkpoint 4</span><span class="badge teach">Teacher check</span></div>
+  <h2>The brain talks to the muscle</h2>
+  <div class="cols cL">
+    <div>
+      <p style="font-size:16.5px">Use <b>male-to-female</b> jumpers: female end on the L298N pin, male end into the Arduino.</p>
+      <table class="pins">
+        <tr><th>L298N</th><th>Arduino</th><th>Job</th></tr>
+        <tr><td class="m"><span class="dot" style="background:#ff8c00"></span>ENA</td><td class="m">~5</td><td>Motor A speed (PWM)</td></tr>
+        <tr><td class="m"><span class="dot" style="background:#e6c200"></span>IN1</td><td class="m">7</td><td>Motor A direction</td></tr>
+        <tr><td class="m"><span class="dot" style="background:#2e9e44"></span>IN2</td><td class="m">8</td><td>Motor A direction</td></tr>
+        <tr><td class="m"><span class="dot" style="background:#1f6fd1"></span>IN3</td><td class="m">9</td><td>Motor B direction</td></tr>
+        <tr><td class="m"><span class="dot" style="background:#8a3fd1"></span>IN4</td><td class="m">10</td><td>Motor B direction</td></tr>
+        <tr><td class="m"><span class="dot" style="background:#d6336c"></span>ENB</td><td class="m">~6</td><td>Motor B speed (PWM)</td></tr>
+      </table>
+      <p style="font-size:15.5px;margin-top:8px">The speed pins need a <b>~</b> (PWM) pin. That's why ENA and ENB go to 5 and 6.</p>
+      <div class="callout stop"><b>STOP.</b> Copy the pin map onto your worksheet, then get your teacher's initials <b>before</b> the battery goes on.</div>
+    </div>
+    <div class="paper"><svg class="circuit" data-step="3" viewBox="20 34 870 540"></svg></div>
+  </div>
+</section>
+
+<!-- ============ 9 DIRECTION TEST ============ -->
+<section class="slide" data-notes="Holding the motors the way they'll mount (shafts pointing outward) makes 'forward' mean the same thing it will on the car: the motors face opposite ways, so on the bench they look like they spin opposite directions. That's correct. Fix direction by swapping that motor's two wires in its screw terminal, not in code. That way every car's code is the same. Watch for: one motor dead = loose screw terminal or ENA/ENB cap still on (cap on = always full speed, ignores PWM, but still runs). Both dead = no common ground, battery off, or IN pins swapped.">
+  <div class="top"><span class="kicker">Step 4 · Test 1 · Direction</span><span class="badge">Worksheet · Checkpoint 5</span></div>
+  <h2>Which way is forward?</h2>
+  <div class="cols c2" style="grid-template-columns:470px 1fr">
+    <div>
+      <ol>
+        <li>Plug in USB. Copy the code, paste, <b>upload</b>.</li>
+        <li><b>Battery ON.</b></li>
+        <li>Hold the motors the way they'll sit on the car: Motor A on the <b>left</b>, Motor B on the <b>right</b>, shafts pointing <b>out</b>. Put a tape flag on each shaft.</li>
+        <li>During FORWARD, the tops of both shafts should roll <b>away from you</b>.</li>
+      </ol>
+      <div class="callout"><b>A motor going the wrong way?</b> Battery OFF, swap that motor's two wires in its screw terminal. Don't change the code. That way everyone's car runs the same code.</div>
+      <div class="callout go">Notice: <b>IN1/IN2</b> pick the direction. <b>ENA</b> picks the speed.</div>
+    </div>
+    <div class="codewrap"><pre class="code">// Test 1: direction check
+const int ENA = 5;  const int IN1 = 7;  const int IN2 = 8;   // Motor A (left)
+const int ENB = 6;  const int IN3 = 9;  const int IN4 = 10;  // Motor B (right)
+
+void setup() {
+  pinMode(ENA, OUTPUT);  pinMode(IN1, OUTPUT);  pinMode(IN2, OUTPUT);
+  pinMode(ENB, OUTPUT);  pinMode(IN3, OUTPUT);  pinMode(IN4, OUTPUT);
+}
+
+void loop() {
+  // FORWARD for 2 seconds
+  digitalWrite(IN1, HIGH);  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);  digitalWrite(IN4, LOW);
+  analogWrite(ENA, 150);    analogWrite(ENB, 150);
+  delay(2000);
+  // STOP for 1 second
+  analogWrite(ENA, 0);  analogWrite(ENB, 0);  delay(1000);
+  // BACKWARD for 2 seconds
+  digitalWrite(IN1, LOW);   digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);   digitalWrite(IN4, HIGH);
+  analogWrite(ENA, 150);    analogWrite(ENB, 150);
+  delay(2000);
+  // STOP for 1 second
+  analogWrite(ENA, 0);  analogWrite(ENB, 0);  delay(1000);
+}</pre></div>
+  </div>
+</section>
+
+<!-- ============ 10 PWM BY HAND ============ -->
+<section class="slide" data-notes="This is the motor version of last lesson's halve-the-numbers experiment. Typical results with a 12 V pack: 200/200 clearly go-stop-go; 50/50 shudders and buzzes; 10/10 runs but rough/buzzy; 2/2 smooth. 3/1 (75%) is clearly faster than 1/3 (25%). Same 4 ms period, different duty. At 1/3 some motors barely turn or don't start at all; that's a preview of slide 15. Only Motor A runs in this test.">
+  <div class="top"><span class="kicker">Step 5 · Test 2 · PWM by hand</span><span class="badge">Worksheet · Checkpoint 6</span></div>
+  <h2>Slow the pulse down until you can feel it</h2>
+  <div class="cols c2" style="grid-template-columns:470px 1fr">
+    <div>
+      <p>Last time you slowed the LED's blink until you could <b>see</b> it. Now do it to a motor. No <code>analogWrite</code>: you'll switch ENA on and off yourself.</p>
+      <ol>
+        <li>Upload with <b>200 / 200</b>. Hold Motor A lightly. What do you feel?</li>
+        <li>Change both numbers to <b>50</b>, upload. Then <b>10</b>. Then <b>2</b>.</li>
+        <li>Fill in the table on your worksheet after each one.</li>
+        <li>Last: try <b>onTime 3, offTime 1</b>. Then <b>onTime 1, offTime 3</b>. Which is faster?</li>
+      </ol>
+      <div class="callout">Slide 11 shows what's happening inside the motor.</div>
+    </div>
+    <div class="codewrap"><pre class="code">// Test 2: PWM by hand, Motor A only
+const int ENA = 5;  const int IN1 = 7;  const int IN2 = 8;
+
+int onTime  = 200;   // ms with power
+int offTime = 200;   // ms with no power
+
+void setup() {
+  pinMode(ENA, OUTPUT);  pinMode(IN1, OUTPUT);  pinMode(IN2, OUTPUT);
+  digitalWrite(IN1, HIGH);  digitalWrite(IN2, LOW);   // forward
+}
+
+void loop() {
+  digitalWrite(ENA, HIGH);   // ON
+  delay(onTime);
+  digitalWrite(ENA, LOW);    // OFF
+  delay(offTime);
+}</pre></div>
+  </div>
+</section>
+
+<!-- ============ 11 WHAT THE MOTOR FEELS ============ -->
+<section class="slide" data-notes="The simulation is a simple model (the motor speeds up and coasts down with a time constant of a few tens of milliseconds). The real motor will be close. The idea to land: when the pulses come faster than the motor can speed up and slow down, the ripple shrinks and you get a steady in-between speed. Same reason the LED looked steady: the eye has a time constant too. Checkpoint 6's last question answer: the motor is too heavy to speed up and slow down that fast, so it averages.">
+  <div class="top"><span class="kicker">Step 5 · What the motor feels</span><span class="badge">Worksheet · Checkpoint 6 (last question)</span></div>
+  <h2>The motor's weight smooths out the pulses</h2>
+  <div class="cols cL">
+    <div>
+      <p>Press the same settings you just tried.</p>
+      <p><b>Top:</b> power to the motor (ENA).<br><b>Bottom:</b> how fast the motor is actually turning.</p>
+      <p>When the pulses are slow, the motor has time to speed up <b>and</b> slow down. Jerky.</p>
+      <p>When the pulses are fast, it's too heavy to change speed that quickly. It settles at the <b>average</b>. Smooth.</p>
+      <div class="callout go">Your eye did this with the LED. The motor does it with its <b>weight</b>.</div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div class="row" id="pulseBtns">
+        <button class="btn on" data-on="200" data-off="200">200 / 200</button>
+        <button class="btn" data-on="50" data-off="50">50 / 50</button>
+        <button class="btn" data-on="10" data-off="10">10 / 10</button>
+        <button class="btn" data-on="2" data-off="2">2 / 2</button>
+        <button class="btn" data-on="3" data-off="1">3 / 1</button>
+        <button class="btn" data-on="1" data-off="3">1 / 3</button>
+      </div>
+      <canvas id="pulseCv" width="1400" height="560"></canvas>
+      <div style="display:flex;align-items:center;gap:20px">
+        <svg viewBox="0 0 100 100" width="96"><g id="pulseWheel"><circle cx="50" cy="50" r="40" fill="#222" stroke="#555" stroke-width="6"/><line x1="50" y1="12" x2="50" y2="88" stroke="#5cff9d" stroke-width="5"/><line x1="12" y1="50" x2="88" y2="50" stroke="#5cff9d" stroke-width="5"/></g></svg>
+        <div class="readout">on <span id="pOn">200</span> ms · off <span id="pOff">200</span> ms · duty <span id="pDuty">50</span>%<br>pulses per second: <span id="pHz">2.5</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 12 ANALOGWRITE ============ -->
+<section class="slide" data-notes="Arduino Uno PWM frequency: pins 5 and 6 ≈ 980 Hz; pins 3, 9, 10, 11 ≈ 490 Hz. The L298N drops roughly 2 V (more at higher current), so a fresh 8×AA pack (~12 V) puts about 10 V on the motor at 255. TT motors are commonly rated 3–6 V. Running at 255 on 12 V works but runs them hot and fast; capping the car's top speed around 150 (~6 V average) is easier on them. Your call; raise it if you like. Checkpoint 7 answer: about 5 V (128 is half of 255, half of ~10 V).">
+  <div class="top"><span class="kicker">Step 6 · analogWrite does it for you</span><span class="badge">Worksheet · Checkpoint 7</span></div>
+  <h2>analogWrite = PWM by hand, 980 times a second</h2>
+  <div class="cols cL">
+    <div>
+      <p>Your smoothest test, 2 / 2, pulsed <b>250</b> times a second. <code>analogWrite</code> on pin 5 or 6 pulses about <b>980</b> times a second. That's why it's silky smooth.</p>
+      <p>The L298N uses up about 2 V, so at <b>255</b> the motor gets about <b>10 V</b>. Duty cycle sets the <b>average</b>:</p>
+      <p class="mono" style="font-size:17px;color:var(--green)">average V ≈ 10 V × (value ÷ 255)</p>
+      <div class="callout"><b>Speed limit:</b> TT motors are built for about 3–6 V. Short bursts at 255 are fine. For long runs, keep the car around <b>150</b> or less (about 6 V).</div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:8px">
+      <canvas id="awCv" width="1400" height="330"></canvas>
+      <div class="readout">analogWrite(ENA, <span id="awV">128</span>) → duty <span id="awD">50</span>% → about <span id="awVolt">5.0</span> V average</div>
+      <input type="range" id="awS" min="0" max="255" value="128">
+      <div class="zone"><div style="flex:50;background:#6f7d8c">hum zone*</div><div style="flex:100;background:#5cff9d">car range</div><div style="flex:105;background:#ffb347">short bursts only</div></div>
+      <div style="display:flex;align-items:center;gap:20px;margin-top:4px">
+        <svg viewBox="0 0 100 100" width="96"><g id="awWheel"><circle cx="50" cy="50" r="40" fill="#222" stroke="#555" stroke-width="6"/><line x1="50" y1="12" x2="50" y2="88" stroke="#5cff9d" stroke-width="5"/><line x1="12" y1="50" x2="88" y2="50" stroke="#5cff9d" stroke-width="5"/></g></svg>
+        <div class="readout" id="awStatus">turning</div>
+      </div>
+      <p class="dim" style="font-size:14px;margin:0">*Every motor's hum zone is a little different. You'll measure yours on slide 15.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 13 BUILD D KNOB ============ -->
+<section class="slide" data-notes="Same pot wiring as last lesson. The + rail now carries the Arduino's 5 V, NOT the battery. Students who put the pot's outer legs on 12 V would push 12 V into A0, so double-check that the + rail jumper comes from the Arduino's 5V pin. 10K (103) and 100K (104) pots both give the same readings.">
+  <div class="top"><span class="kicker">Step 7 · Build D · The knob is back</span><span class="slidenum">NEW: highlighted</span></div>
+  <h2>Add the potentiometer</h2>
+  <div class="cols cL">
+    <div>
+      <p>Same wiring as last time:</p>
+      <ol>
+        <li>Arduino <b>5V</b> → breadboard <span style="color:#ff6b6b"><b>+ rail</b></span>.</li>
+        <li>Pot: one outer leg → <b>+ rail</b>, other outer leg → <b>− rail</b>.</li>
+        <li>Pot middle leg (the <b>wiper</b>) → Arduino <b>A0</b>.</li>
+      </ol>
+      <div class="callout stop">The + rail gets <b>5 V from the Arduino</b>. Never from the battery pack.</div>
+      <div class="callout">10K (printed <b>103</b>) or 100K (<b>104</b>): both work exactly the same.</div>
+    </div>
+    <div class="paper"><svg class="circuit" data-step="4" viewBox="20 34 870 540"></svg></div>
+  </div>
+</section>
+
+<!-- ============ 14 KNOB CODE ============ -->
+<section class="slide" data-notes="This is last lesson's knob code with the LED pin swapped for ENA and ENB. If turning the knob 'up' slows the motors, that's fine: swapping the pot's outer legs reverses it. If the motors twitch at 0, check that the Serial Monitor really shows 0 at the end of the knob's travel. TEACHER CHECK: knob controls both motors smoothly from stopped to fast.">
+  <div class="top"><span class="kicker">Step 7 · Test 3 · Speed knob</span><span class="badge teach">Teacher check</span></div>
+  <h2>Turn the knob, drive the motors</h2>
+  <div class="cols c2" style="grid-template-columns:420px 1fr">
+    <div>
+      <p>This is last lesson's knob code. The only change: <code>analogWrite</code> goes to <b>ENA</b> and <b>ENB</b> instead of the LED.</p>
+      <ol>
+        <li>Copy, paste, upload.</li>
+        <li>Open <b>Serial Monitor</b> (9600).</li>
+        <li>Turn the knob all the way down, then all the way up.</li>
+      </ol>
+      <div class="callout">Remember the puzzle from last time? <code>analogRead</code> gives 0–1023, <code>analogWrite</code> wants 0–255. <b>Divide by 4.</b></div>
+      <div class="callout stop">Get your teacher's initials when your knob controls <b>both</b> motors.</div>
+    </div>
+    <div class="codewrap"><pre class="code">// Test 3: the speed knob
+const int ENA = 5;  const int IN1 = 7;  const int IN2 = 8;   // Motor A
+const int ENB = 6;  const int IN3 = 9;  const int IN4 = 10;  // Motor B
+const int KNOB = A0;
+
+void setup() {
+  pinMode(ENA, OUTPUT);  pinMode(IN1, OUTPUT);  pinMode(IN2, OUTPUT);
+  pinMode(ENB, OUTPUT);  pinMode(IN3, OUTPUT);  pinMode(IN4, OUTPUT);
+  Serial.begin(9600);
+
+  digitalWrite(IN1, HIGH);  digitalWrite(IN2, LOW);   // Motor A forward
+  digitalWrite(IN3, HIGH);  digitalWrite(IN4, LOW);   // Motor B forward
+}
+
+void loop() {
+  int knob  = analogRead(KNOB);   // 0 to 1023
+  int speed = knob / 4;           // 0 to 255
+
+  analogWrite(ENA, speed);
+  analogWrite(ENB, speed);
+
+  Serial.println(speed);
+  delay(50);
+}</pre></div>
+  </div>
+</section>
+
+<!-- ============ 15 STARTING LINE ============ -->
+<section class="slide" data-notes="Typical numbers on a 12 V pack: START somewhere around 40–90, STOP lower than START. It takes more push to break a stopped gearbox loose (static friction) than to keep it turning. The whine below START is the PWM itself: the motor coils vibrate at the switching frequency (~980 Hz on pins 5 and 6). That's the 'ear' version of last lesson's wave test. Why it matters on the car: any speed below START just hums. Low-speed turns need at least START on the slow wheel. Checkpoint 8 answer for the 'why': B.">
+  <div class="top"><span class="kicker">Step 8 · The starting line</span><span class="badge">Worksheet · Checkpoint 8</span></div>
+  <h2>How slow can your motor go?</h2>
+  <div class="cols c2">
+    <div>
+      <ol>
+        <li>Knob all the way down (0). Now turn it up <b>very slowly</b>, watching Serial Monitor.</li>
+        <li>The number where the wheels first start turning = <b>START</b>.</li>
+        <li>Turn it up a little more, then turn it <b>down</b> slowly. The number where they stop = <b>STOP</b>.</li>
+        <li><b>Listen:</b> set the knob just below START. Put your ear near a motor. That sound is pin 5 switching on and off about <b>980 times a second</b>. Your eye couldn't catch the LED's blink. Your ear can catch the motor's.</li>
+      </ol>
+      <div class="callout"><b>Why it matters on the car:</b> any speed below START just sits there humming. Your slowest useful speed is about START.</div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <h3>Practice on a pretend motor first</h3>
+      <p style="font-size:16px">This one has START = 70 and STOP = 45. Yours will be different. Go up slowly, then come back down.</p>
+      <input type="range" id="hysS" min="0" max="255" value="0">
+      <div style="display:flex;align-items:center;gap:22px">
+        <svg viewBox="0 0 100 100" width="120"><g id="hysWheel"><circle cx="50" cy="50" r="40" fill="#222" stroke="#555" stroke-width="6"/><line x1="50" y1="12" x2="50" y2="88" stroke="#5cff9d" stroke-width="5"/><line x1="12" y1="50" x2="88" y2="50" stroke="#5cff9d" stroke-width="5"/></g></svg>
+        <div>
+          <div class="readout">Serial Monitor: <span id="hysV">0</span></div>
+          <div class="readout" id="hysStatus" style="margin-top:6px;color:#9aa6b4">stopped</div>
+        </div>
+      </div>
+      <canvas id="hysCv" width="1000" height="200"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 16 STEERING ============ -->
+<section class="slide" data-notes="The car has no steering wheel: it turns by giving the wheels different speeds (differential drive). Gentle turn = both forward, one slower. Pivot = one wheel stopped (turns around that wheel). Spin = wheels opposite (turns in place). The simulation ignores speeds under 50 to mimic the hum zone. Checkpoint 9 answers: straight; gentle right; pivot right; spin left. The last one (L −150, R 150) isn't a preset button on purpose, so they have to use the sliders.">
+  <div class="top"><span class="kicker">Step 9 · Two wheels = steering</span><span class="badge">Worksheet · Checkpoint 9</span></div>
+  <h2>Your car turns by giving each wheel a different PWM</h2>
+  <div class="cols cL">
+    <div>
+      <p>No steering wheel. Just two speeds. Negative = backward.</p>
+      <table class="pins">
+        <tr><th>Move</th><th>How</th></tr>
+        <tr><td><b>Straight</b></td><td>both wheels the same</td></tr>
+        <tr><td><b>Gentle turn</b></td><td>both forward, one slower</td></tr>
+        <tr><td><b>Pivot turn</b></td><td>one wheel stopped</td></tr>
+        <tr><td><b>Spin turn</b></td><td>wheels go opposite ways</td></tr>
+      </table>
+      <div class="callout">Try each button, then use the sliders to test the last row of Checkpoint 9.</div>
+      <div class="row" id="carBtns" style="margin-top:6px">
+        <button class="btn" data-l="150" data-r="150">L 150 · R 150</button>
+        <button class="btn" data-l="150" data-r="90">L 150 · R 90</button>
+        <button class="btn" data-l="150" data-r="0">L 150 · R 0</button>
+        <button class="btn" data-l="-150" data-r="-150">L −150 · R −150</button>
+      </div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:8px">
+      <canvas id="carCv" width="1400" height="760"></canvas>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:14px;align-items:center">
+        <div><div class="readout">Left (Motor A): <span id="carLv">0</span></div><input type="range" id="carL" min="-255" max="255" value="0"></div>
+        <div><div class="readout">Right (Motor B): <span id="carRv">0</span></div><input type="range" id="carR" min="-255" max="255" value="0"></div>
+        <button class="btn" id="carReset">reset</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 17 ON THE CAR ============ -->
+<section class="slide" data-notes="Car power choice: one 12 V pack runs everything. Battery red goes to the L298N +12V terminal AND (second wire, same terminal) to the Arduino's VIN pin; the Uno's regulator makes its own 5 V from that (VIN is rated 7–12 V). Battery black and the Arduino's GND both go in the L298N GND terminal. One switch turns the whole car on and off. Plugging in USB to upload while the pack is on is fine: the Uno automatically switches to VIN when it's above about 6.6 V. Never connect the pack to the Arduino's 5V pin. Alternative some teachers use: a separate 9 V battery on the Arduino's barrel jack (grounds still shared); 9 V batteries die fast, so one pack is simpler. Checkpoint 10 answers: battery red + jumper to Arduino VIN; battery black + Arduino GND.">
+  <div class="top"><span class="kicker">Step 10 · What changes on the car</span><span class="badge">Worksheet · Checkpoint 10</span></div>
+  <h2>Today vs. on the car</h2>
+  <div class="cols c2">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="paper"><svg id="powerToday2" viewBox="0 0 640 400"></svg></div>
+      <h3 style="color:var(--dim)">TODAY: two power sources, ground on the breadboard</h3>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="paper"><svg id="powerCar" viewBox="0 0 640 400"></svg></div>
+      <h3>ON THE CAR: one 12 V pack runs everything, no breadboard</h3>
+    </div>
+  </div>
+  <div class="cols c2" style="flex:0 0 auto;margin-top:6px">
+    <div class="callout go" style="margin:0"><b>Stays the same:</b> motor wires, the six signal wires, your pin map, your code (minus the knob).</div>
+    <div class="callout" style="margin:0"><b>Changes:</b> +12V terminal gets a 2nd wire to Arduino <b>VIN</b>. GND terminal gets the Arduino's <b>GND</b>. Never the 5V pin.</div>
+  </div>
+</section>
+
+<!-- ============ 18 EXIT ============ -->
+<section class="slide" data-notes="Exit ticket answers: 1) ENA and ENB. 2) It's too heavy to speed up and slow down that fast, so it settles at the average. 3) The left wheel. Cleanup: battery OFF first, always. Decide whether circuits stay assembled for the car build; the motor and signal wiring can move straight onto the chassis.">
+  <div class="top"><span class="kicker">Wrap-up</span><span class="badge">Worksheet · Exit ticket</span></div>
+  <h2>Exit ticket</h2>
+  <div class="qa">
+    <div><b>1</b>Which two L298N pins get the PWM signal?</div>
+    <div><b>2</b>At 2 ms on / 2 ms off, your motor ran smooth instead of jerky. Why?</div>
+    <div><b>3</b>For a gentle <b>left</b> turn, which wheel goes slower?</div>
+  </div>
+  <div class="callout stop" style="margin-top:18px;font-size:18px"><b>Cleanup:</b> battery pack <b>OFF first</b>. Then follow your teacher's directions about whether your circuit stays built.</div>
+  <div class="callout go" style="font-size:18px">Done early? Slide 19 has the function your car will use for every move.</div>
+</section>
+
+<!-- ============ 19 BONUS ============ -->
+<section class="slide" data-notes="Bonus for early finishers. Uses if/else (they've seen a conditional in the input-pin lesson; the full conditionals lesson is still to come) and abs() to turn a negative speed into a positive PWM value. They paste drive() and the new loop() into Test 1 (keep its constants and setup).">
+  <div class="top"><span class="kicker">Bonus · For early finishers</span></div>
+  <h2>One function for every move</h2>
+  <div class="cols c2" style="grid-template-columns:420px 1fr">
+    <div>
+      <p>Open your <b>Test 1</b> code. Keep the pin constants and <code>setup()</code>. Replace <code>loop()</code> with this.</p>
+      <p><code>drive(left, right)</code> takes a speed for each wheel. <b>Negative = backward.</b></p>
+      <p><code>abs()</code> turns −150 into 150, because <code>analogWrite</code> only takes 0–255.</p>
+      <div class="callout">Hold the motors like slide 9. Can you call out each move before it happens?</div>
+      <div class="callout go">Next class: this goes on the car.</div>
+    </div>
+    <div class="codewrap"><pre class="code">// Bonus: one function for every move
+void drive(int left, int right) {
+  // Motor A (left)
+  if (left >= 0) { digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);  }
+  else           { digitalWrite(IN1, LOW);  digitalWrite(IN2, HIGH); }
+  analogWrite(ENA, abs(left));
+
+  // Motor B (right)
+  if (right >= 0) { digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);  }
+  else            { digitalWrite(IN3, LOW);  digitalWrite(IN4, HIGH); }
+  analogWrite(ENB, abs(right));
+}
+
+void loop() {
+  drive(150, 150);    delay(1500);   // straight
+  drive(150, 90);     delay(1500);   // gentle right
+  drive(150, 0);      delay(1000);   // pivot right
+  drive(-150, 150);   delay(800);    // spin left
+  drive(-150, -150);  delay(1500);   // backward
+  drive(0, 0);        delay(2000);   // stop
+}</pre></div>
+  </div>
+</section>
+
+<div id="nav">
+  <button class="btn" id="prevB">◀ Back</button>
+  <div class="count">Slide <b id="curN">1</b> / <span id="totN">1</span></div>
+  <div id="prog"><div></div></div>
+  <span class="hint">← → to move · N = teacher notes</span>
+  <button class="btn" id="nextB">Next ▶</button>
+</div>
+</div>
+
+<div id="notes"><h4>TEACHER NOTES · SLIDE <span id="notesN"></span></h4><div id="notesT"></div></div>
+
+<script>
+/* ---------------- stage + navigation ---------------- */
+const stage = document.getElementById('stage');
+const slides = [...document.querySelectorAll('.slide')];
+let cur = 0;
+function fit(){ const s = Math.min(innerWidth/1280, innerHeight/720); stage.style.transform = `translate(-50%,-50%) scale(${s})`; }
+addEventListener('resize', fit); fit();
+document.getElementById('totN').textContent = slides.length;
+function show(i){
+  cur = Math.max(0, Math.min(slides.length-1, i));
+  slides.forEach((s,k)=>s.classList.toggle('active', k===cur));
+  document.getElementById('curN').textContent = cur+1;
+  document.querySelector('#prog div').style.width = ((cur+1)/slides.length*100)+'%';
+  document.getElementById('notesN').textContent = cur+1;
+  document.getElementById('notesT').innerHTML = (slides[cur].dataset.notes||'').replace(/\n/g,'<br>');
+  try{ history.replaceState(null,'','#'+(cur+1)); }catch(e){}
+}
+document.getElementById('prevB').onclick = ()=>show(cur-1);
+document.getElementById('nextB').onclick = ()=>show(cur+1);
+addEventListener('keydown', e=>{
+  if (e.target.tagName==='INPUT') { if (e.key==='ArrowLeft'||e.key==='ArrowRight') return; }
+  if (['ArrowRight','PageDown',' '].includes(e.key)) { e.preventDefault(); show(cur+1); }
+  else if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); show(cur-1); }
+  else if (e.key==='n'||e.key==='N') document.getElementById('notes').classList.toggle('show');
+});
+const startHash = parseInt((location.hash||'').slice(1));
+show(isNaN(startHash)?0:startHash-1);
+
+/* ---------------- code blocks: highlight + copy ---------------- */
+const esc = s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function hl(line){
+  const i = line.indexOf('//');
+  let code = i>=0 ? line.slice(0,i) : line, com = i>=0 ? line.slice(i) : '';
+  code = esc(code)
+    .replace(/\b(\d+)\b/g,'<span class="n">$1</span>')
+    .replace(/\b(void|int|const|if|else)\b/g,'<span class="k">$1</span>')
+    .replace(/\b(HIGH|LOW|OUTPUT)\b/g,'<span class="v">$1</span>')
+    .replace(/\b(pinMode|digitalWrite|analogWrite|analogRead|delay|abs|Serial\.begin|Serial\.println|setup|loop|drive)\b/g,'<span class="f">$1</span>');
+  return code + (com ? '<span class="c">'+esc(com)+'</span>' : '');
+}
+document.querySelectorAll('pre.code').forEach(pre=>{
+  const raw = pre.textContent;
+  pre.dataset.raw = raw;
+  pre.innerHTML = raw.split('\n').map(hl).join('\n');
+  const b = document.createElement('button'); b.className='copy'; b.textContent='Copy code';
+  b.onclick = async ()=>{
+    let ok=false;
+    try{ await navigator.clipboard.writeText(raw); ok=true; }catch(e){
+      try{ const t=document.createElement('textarea'); t.value=raw; document.body.appendChild(t); t.select(); ok=document.execCommand('copy'); t.remove(); }catch(e2){}
+    }
+    b.textContent = ok ? 'Copied ✓' : 'Select + Ctrl-C';
+    setTimeout(()=>b.textContent='Copy code',1600);
+  };
+  pre.parentElement.appendChild(b);
+});
+
+/* ---------------- shared drawing pieces ---------------- */
+const SIG = {ENA:'#ff8c00', IN1:'#e6c200', IN2:'#2e9e44', IN3:'#1f6fd1', IN4:'#8a3fd1', ENB:'#d6336c'};
+const HDR = ['ENA','IN1','IN2','IN3','IN4','ENB'];
+const hdrX = k => 596 + 13*k;               // L298N header pin x
+const TOP = ['SCL','SDA','AREF','GND','13','12','11','10','9','8','7','6','5','4','3','2','1','0'];
+const topX = name => { const i = TOP.indexOf(name); return 513 + 13*i + (i>=10?10:0); };
+const BOT = ['IOREF','RESET','3.3V','5V','GND','GND2','VIN','A0','A1','A2','A3','A4','A5'];
+const botX = name => { const i = BOT.indexOf(name); return 520 + 13*i + (i>=7?(630-520-13*7):0); };
+const PWM = ['11','10','9','6','5','3'];
+
+function drawL298N(o={}){
+  let s = '';
+  s += `<rect x="470" y="40" width="230" height="200" rx="6" fill="#c62828" stroke="#8e1b1b" stroke-width="2"/>`;
+  [[478,48],[692,48],[478,232],[692,232]].forEach(([x,y])=> s+=`<circle cx="${x}" cy="${y}" r="4" fill="#f4f1ea" stroke="#8e1b1b"/>`);
+  // heatsink
+  s += `<rect x="548" y="52" width="74" height="76" fill="#1b1b1b" rx="2"/>`;
+  for(let x=554;x<620;x+=8) s+=`<line x1="${x}" y1="54" x2="${x}" y2="126" stroke="#3d3d3d" stroke-width="3"/>`;
+  s += `<text x="585" y="146" text-anchor="middle" fill="#fff" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600">L298N</text>`;
+  // motor A terminal
+  s += `<rect x="470" y="118" width="26" height="54" fill="#1565c0" rx="2"/>`;
+  [132,158].forEach(y=> s+=`<circle cx="483" cy="${y}" r="7" fill="#cfd8dc"/><line x1="478" y1="${y}" x2="488" y2="${y}" stroke="#555" stroke-width="2"/>`);
+  s += `<text x="500" y="136" fill="#fff" font-family="JetBrains Mono, monospace" font-size="10">OUT1</text><text x="500" y="162" fill="#fff" font-family="JetBrains Mono, monospace" font-size="10">OUT2</text>`;
+  s += `<text x="500" y="112" fill="#ffd2d2" font-family="JetBrains Mono, monospace" font-size="9">MOTOR A</text>`;
+  // motor B terminal
+  s += `<rect x="674" y="118" width="26" height="54" fill="#1565c0" rx="2"/>`;
+  [132,158].forEach(y=> s+=`<circle cx="687" cy="${y}" r="7" fill="#cfd8dc"/><line x1="682" y1="${y}" x2="692" y2="${y}" stroke="#555" stroke-width="2"/>`);
+  s += `<text x="670" y="136" text-anchor="end" fill="#fff" font-family="JetBrains Mono, monospace" font-size="10">OUT3</text><text x="670" y="162" text-anchor="end" fill="#fff" font-family="JetBrains Mono, monospace" font-size="10">OUT4</text>`;
+  s += `<text x="670" y="112" text-anchor="end" fill="#ffd2d2" font-family="JetBrains Mono, monospace" font-size="9">MOTOR B</text>`;
+  // power terminal
+  s += `<rect x="485" y="208" width="82" height="32" fill="#1565c0" rx="2"/>`;
+  [[497,'+12V'],[525,'GND'],[553,'+5V']].forEach(([x,l])=>{
+    s+=`<circle cx="${x}" cy="224" r="8" fill="#cfd8dc"/><line x1="${x}" y1="218" x2="${x}" y2="230" stroke="#555" stroke-width="2"/>`;
+    s+=`<text x="${x}" y="201" text-anchor="middle" fill="#fff" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600">${l}</text>`;
+  });
+  // 5V-EN jumper
+  s += `<rect x="573" y="170" width="6" height="6" fill="#d4af37"/><rect x="573" y="182" width="6" height="6" fill="#d4af37"/>`;
+  s += `<rect x="570" y="168" width="12" height="22" rx="2" fill="#111"/>`;
+  s += `<text x="566" y="183" text-anchor="end" fill="#fff" font-family="JetBrains Mono, monospace" font-size="8.5">5V-EN</text>`;
+  // header
+  s += `<rect x="589" y="222" width="79" height="16" fill="#222" rx="1"/>`;
+  HDR.forEach((h,k)=>{
+    const x = hdrX(k);
+    s+=`<rect x="${x-3}" y="227" width="6" height="6" fill="#d4af37"/>`;
+    s+=`<text transform="translate(${x+3.5},207) rotate(-90)" fill="#fff" font-family="JetBrains Mono, monospace" font-size="10" font-weight="600">${h}</text>`;
+    if (o.caps && (h==='ENA'||h==='ENB')) {
+      s+=`<rect x="${x-3}" y="213" width="6" height="6" fill="#d4af37"/>`;
+      s+=`<rect x="${x-6}" y="210" width="12" height="27" rx="2" fill="#111" stroke="#444"/>`;
+    }
+  });
+  return s;
+}
+
+function drawUno(){
+  let s = '';
+  s += `<rect x="430" y="330" width="340" height="200" rx="8" fill="#0f6c8c" stroke="#0a4f66" stroke-width="2"/>`;
+  s += `<rect x="410" y="352" width="38" height="40" rx="3" fill="#b0bec5"/>`;
+  s += `<rect x="414" y="470" width="36" height="40" rx="3" fill="#222"/>`;
+  s += `<rect x="600" y="430" width="130" height="30" rx="2" fill="#1b1b1b"/><text x="665" y="449" text-anchor="middle" fill="#9aa6b4" font-family="JetBrains Mono, monospace" font-size="9">ATmega328P</text>`;
+  s += `<text x="462" y="450" fill="#fff" font-family="Space Grotesk, sans-serif" font-size="20" font-weight="700">Arduino Uno</text>`;
+  s += `<rect x="507" y="334" width="132" height="14" fill="#1b1b1b"/><rect x="647" y="334" width="104" height="14" fill="#1b1b1b"/>`;
+  TOP.forEach(n=>{
+    const x = topX(n);
+    s += `<rect x="${x-3}" y="338" width="6" height="6" fill="#d4af37"/>`;
+    if (/^\d+$/.test(n)) s += `<text x="${x}" y="361" text-anchor="middle" fill="#fff" font-family="JetBrains Mono, monospace" font-size="8.5" font-weight="600">${PWM.includes(n)?'~':''}${n}</text>`;
+  });
+  s += `<text x="${topX('GND')}" y="361" text-anchor="middle" fill="#cfe" font-family="JetBrains Mono, monospace" font-size="7">GND</text>`;
+  s += `<rect x="513" y="514" width="92" height="14" fill="#1b1b1b"/><rect x="623" y="514" width="79" height="14" fill="#1b1b1b"/>`;
+  BOT.forEach(n=>{
+    const x = botX(n);
+    s += `<rect x="${x-3}" y="518" width="6" height="6" fill="#d4af37"/>`;
+    s += `<text transform="translate(${x+3.5},508) rotate(-90)" fill="#fff" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600">${n==='GND2'?'GND':n}</text>`;
+  });
+  s += `<text x="404" y="366" text-anchor="end" fill="#555" font-family="JetBrains Mono, monospace" font-size="11">USB to</text><text x="404" y="380" text-anchor="end" fill="#555" font-family="JetBrains Mono, monospace" font-size="11">laptop</text>`;
+  return s;
+}
+
+function drawMotor(side){
+  let s='';
+  if (side==='A'){
+    s += `<rect x="330" y="110" width="84" height="56" rx="4" fill="#f2c200" stroke="#b38f00" stroke-width="2"/>`;
+    s += `<rect x="362" y="94" width="16" height="16" fill="#fff" stroke="#aaa"/><rect x="362" y="166" width="16" height="12" fill="#fff" stroke="#aaa"/>`;
+    s += `<rect x="414" y="118" width="30" height="40" rx="6" fill="#b0b0b0" stroke="#888"/>`;
+    s += `<text x="330" y="200" fill="#222" font-family="Space Grotesk, sans-serif" font-size="15" font-weight="700">Motor A</text><text x="330" y="216" fill="#666" font-family="Space Grotesk, sans-serif" font-size="12">(left)</text>`;
+  } else {
+    s += `<rect x="756" y="110" width="84" height="56" rx="4" fill="#f2c200" stroke="#b38f00" stroke-width="2"/>`;
+    s += `<rect x="792" y="94" width="16" height="16" fill="#fff" stroke="#aaa"/><rect x="792" y="166" width="16" height="12" fill="#fff" stroke="#aaa"/>`;
+    s += `<rect x="726" y="118" width="30" height="40" rx="6" fill="#b0b0b0" stroke="#888"/>`;
+    s += `<text x="756" y="200" fill="#222" font-family="Space Grotesk, sans-serif" font-size="15" font-weight="700">Motor B</text><text x="756" y="216" fill="#666" font-family="Space Grotesk, sans-serif" font-size="12">(right)</text>`;
+  }
+  return s;
+}
+
+function drawBattery(){
+  let s = `<text x="40" y="236" fill="#222" font-family="Space Grotesk, sans-serif" font-size="15" font-weight="700">12 V pack · 8 × AA</text>`;
+  s += `<rect x="40" y="245" width="220" height="62" rx="6" fill="#222"/>`;
+  for(let r=0;r<2;r++) for(let k=0;k<4;k++){
+    const x=50+50*k, y=251+27*r;
+    s+=`<rect x="${x}" y="${y}" width="44" height="22" rx="3" fill="#c9a227"/><rect x="${x+40}" y="${y+7}" width="4" height="8" fill="#888"/>`;
+  }
+  return s;
+}
+
+function drawBreadboard(withPot){
+  let s = `<rect x="30" y="420" width="360" height="124" rx="6" fill="#fdfdfd" stroke="#c9c9c9" stroke-width="2"/>`;
+  s += `<line x1="40" y1="427" x2="382" y2="427" stroke="#e53935" stroke-width="2"/><line x1="40" y1="451" x2="382" y2="451" stroke="#1e88e5" stroke-width="2"/>`;
+  s += `<text x="34" y="438" fill="#e53935" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700">+</text><text x="34" y="450" fill="#1e88e5" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700">−</text>`;
+  for(let x=45;x<=375;x+=13){ s+=`<rect x="${x-1.5}" y="431.5" width="3" height="3" fill="#999"/><rect x="${x-1.5}" y="443.5" width="3" height="3" fill="#999"/>`; }
+  for(let y=466;y<=518;y+=13) for(let x=45;x<=375;x+=13) s+=`<rect x="${x-1.5}" y="${y-1.5}" width="3" height="3" fill="#bbb"/>`;
+  s += `<text x="44" y="538" fill="#999" font-family="JetBrains Mono, monospace" font-size="10">breadboard</text>`;
+  if (withPot){
+    [175,188,201].forEach(x=> s+=`<line x1="${x}" y1="466" x2="${x}" y2="484" stroke="#999" stroke-width="2.5"/>`);
+    s += `<rect x="166" y="482" width="44" height="32" rx="3" fill="#1e3a8a"/><circle cx="188" cy="498" r="11" fill="#e0e0e0"/><line x1="181" y1="498" x2="195" y2="498" stroke="#666" stroke-width="2.5"/>`;
+    s += `<text x="218" y="494" fill="#222" font-family="Space Grotesk, sans-serif" font-size="12" font-weight="700">pot</text><text x="218" y="508" fill="#666" font-family="Space Grotesk, sans-serif" font-size="10.5">10K or 100K</text>`;
+  }
+  return s;
+}
+
+function wirePath(pts, color, mode){
+  const d = pts.map(p=>p.join(',')).join(' ');
+  let s = '';
+  const op = mode==='old' ? 0.55 : 1;
+  if (mode==='new') s += `<polyline points="${d}" fill="none" stroke="${color}" stroke-opacity=".28" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<polyline points="${d}" fill="none" stroke="${color}" stroke-opacity="${op}" stroke-width="${mode==='new'?4.5:3.5}" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const [a,b] = [pts[0], pts[pts.length-1]];
+  s += `<circle cx="${a[0]}" cy="${a[1]}" r="3" fill="${color}" fill-opacity="${op}"/><circle cx="${b[0]}" cy="${b[1]}" r="3" fill="${color}" fill-opacity="${op}"/>`;
+  return s;
+}
+
+function circuitSVG(step){
+  const order = {motors:1, power:2, signals:3, pot:4};
+  const wires = [];
+  // motors
+  wires.push({g:'motors', c:'#d62828', p:[[444,128],[458,128],[458,132],[470,132]]});
+  wires.push({g:'motors', c:'#222',    p:[[444,152],[458,152],[458,158],[470,158]]});
+  wires.push({g:'motors', c:'#d62828', p:[[726,128],[712,128],[712,132],[700,132]]});
+  wires.push({g:'motors', c:'#222',    p:[[726,152],[712,152],[712,158],[700,158]]});
+  // power + ground
+  wires.push({g:'power', c:'#d62828', p:[[260,265],[497,265],[497,240]]});
+  wires.push({g:'power', c:'#222',    p:[[260,280],[521,280],[521,240]]});
+  wires.push({g:'power', c:'#222',    p:[[529,240],[529,294],[349,294],[349,445]]});
+  wires.push({g:'power', c:'#222',    p:[[botX('GND'),526],[botX('GND'),548],[362,548],[362,445]]});
+  // signals
+  const map = {ENA:'5', IN1:'7', IN2:'8', IN3:'9', IN4:'10', ENB:'6'};
+  const lvl = {ENA:322, IN1:310, IN2:298, IN3:286, IN4:274, ENB:262};
+  HDR.forEach((h,k)=>{
+    const x1=hdrX(k), x2=topX(map[h]), y=lvl[h];
+    wires.push({g:'signals', c:SIG[h], p:[[x1,238],[x1,y],[x2,y],[x2,338]]});
+  });
+  // pot
+  wires.push({g:'pot', c:'#d62828', p:[[botX('5V'),526],[botX('5V'),538],[375,538],[375,433]]});
+  wires.push({g:'pot', c:'#d62828', p:[[175,466],[175,433]]});
+  wires.push({g:'pot', c:'#222',    p:[[201,466],[201,445]]});
+  wires.push({g:'pot', c:'#00a3a3', p:[[188,514],[188,562],[botX('A0'),562],[botX('A0'),526]]});
+
+  let s = drawBreadboard(step>=4) + drawBattery() + drawUno() + drawL298N({caps:false}) + drawMotor('A') + drawMotor('B');
+  wires.forEach(w=>{
+    const o = order[w.g];
+    if (o>step) return;
+    s += wirePath(w.p, w.c, o===step ? 'new' : 'old');
+  });
+  // small callouts
+  if (step>=2) s += `<text x="560" y="262" fill="#777" font-family="JetBrains Mono, monospace" font-size="10">${step===2?'+5V: leave empty':''}</text>`;
+  if (step>=3) s += `<text x="712" y="296" fill="#555" font-family="JetBrains Mono, monospace" font-size="11">6 signal wires</text><text x="712" y="310" fill="#555" font-family="JetBrains Mono, monospace" font-size="11">(male-to-female)</text>`;
+  return s;
+}
+document.querySelectorAll('svg.circuit').forEach(svg=> svg.innerHTML = circuitSVG(+svg.dataset.step));
+
+/* ---------------- power block diagrams ---------------- */
+function box(x,y,w,h,title,sub,fill){
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="${fill||'#fff'}" stroke="#333" stroke-width="2"/>`+
+    `<text x="${x+w/2}" y="${y+h/2-(sub?4:-6)}" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-size="18" font-weight="700" fill="#111">${title}</text>`+
+    (sub?`<text x="${x+w/2}" y="${y+h/2+16}" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-size="13" fill="#555">${sub}</text>`:'');
+}
+function lbl(x,y,t,c,anchor){ return `<text x="${x}" y="${y}" text-anchor="${anchor||'middle'}" font-family="JetBrains Mono, monospace" font-size="12.5" font-weight="600" fill="${c||'#333'}">${t}</text>`; }
+function ln(pts,c,w,dash){ return `<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${c}" stroke-width="${w||4}" stroke-linejoin="round" ${dash?'stroke-dasharray="8 6"':''}/>`; }
+function powerSVG(mode){
+  let s = '';
+  // boxes
+  if (mode==='today') s += box(20,40,130,70,'Laptop','USB',  '#e8eef5');
+  else s += box(20,40,130,70,'Laptop','only to upload','#f0f0f0');
+  s += box(220,30,170,92,'Arduino','the brain','#d7eef7');
+  s += box(20,250,130,80,'12 V pack','8 × AA','#f6e7b8');
+  s += box(220,240,170,92,'L298N','the muscle','#f7d4d4');
+  s += box(470,240,150,92,'2 motors','A and B','#fff3b0');
+  // usb
+  s += ln([[150,75],[220,75]], mode==='today'?'#607d8b':'#b0bec5', 5, mode!=='today');
+  s += lbl(185,66,'USB','#607d8b');
+  // signals
+  s += ln([[305,122],[305,240]], '#ff8c00', 5);
+  s += lbl(296,170,'6 signal wires','#c66d00','end'); s += lbl(296,186,'(pins 5–10)','#c66d00','end');
+  // battery +
+  s += ln([[150,272],[220,272]], '#d62828', 5); s += lbl(170,264,'+12V','#d62828');
+  // motors
+  s += ln([[390,272],[470,272]], '#d62828', 5); s += ln([[390,300],[470,300]], '#222', 5);
+  s += lbl(445,262,'PWM','#555');
+  // ground bus
+  s += ln([[85,330],[85,360],[560,360]], '#1565c0', 6);
+  s += ln([[305,332],[305,360]], '#1565c0', 6);
+  s += ln([[390,100],[415,100],[415,360]], '#1565c0', 6);
+  s += lbl(402,92,'GND','#1565c0');
+  s += lbl(440,380,'common ground','#1565c0','start');
+  s += lbl(440,396, mode==='today' ? '(breadboard − rail)' : '(L298N GND terminal)', '#1565c0','start');
+  if (mode==='car'){
+    s += ln([[205,272],[205,100],[220,100]], '#d62828', 5);
+    s += `<circle cx="205" cy="272" r="6" fill="#d62828"/>`;
+    s += lbl(198,190,'+12V','#d62828','end'); s += lbl(198,206,'→ VIN','#d62828','end');
+  }
+  return s;
+}
+document.getElementById('powerToday').innerHTML = powerSVG('today');
+document.getElementById('powerToday2').innerHTML = powerSVG('today');
+document.getElementById('powerCar').innerHTML = powerSVG('car');
+
+/* ---------------- L298N tour ---------------- */
+const TOUR = {
+  outA:['OUT1 / OUT2 · Motor A','Motor A\'s two wires screw in here. Swap the two wires and Motor A spins the other way. That\'s how you\'ll fix direction.',[468,112,58,64]],
+  outB:['OUT3 / OUT4 · Motor B','Motor B\'s two wires screw in here. Same deal: swap them to flip Motor B\'s direction.',[644,112,58,64]],
+  v12:['+12V · motor power in','The battery pack\'s <b>red</b> wire goes here. This is the power that actually spins the motors. (Some boards label it VCC or VMS.)',[485,192,24,50]],
+  gnd:['GND · ground','The battery\'s <b>black</b> wire goes here, plus a wire to the Arduino\'s ground. Everyone shares this.',[513,192,24,50]],
+  v5:['+5V terminal','With the 5V-EN jumper on, the board makes its own 5 V and this terminal is an <b>output</b>. Today: <b>leave it empty</b>.',[541,192,26,50]],
+  en5:['5V-EN jumper','Turns on the board\'s built-in 5 V regulator, which powers the L298N\'s own logic. <b>Leave it on</b> for our 12 V pack.',[556,164,30,30]],
+  ena:['ENA · Motor A speed','"Enable A." This is where PWM goes. It ships with a jumper cap connecting it to 5 V, which means <b>always HIGH = always 100% = always full speed</b>. Pull the cap off so the Arduino can control it.',[588,176,16,64]],
+  inA:['IN1 / IN2 · Motor A direction','HIGH + LOW = one way. LOW + HIGH = the other way. LOW + LOW = stop. These only need digitalWrite.',[603,176,28,64]],
+  inB:['IN3 / IN4 · Motor B direction','Same as IN1/IN2, but for Motor B.',[629,176,28,64]],
+  enb:['ENB · Motor B speed','"Enable B." Motor B\'s PWM pin. Same jumper cap, same reason to pull it off.',[654,176,16,64]],
+  chip:['The L298N chip + heatsink','Inside the chip: <b>two H-bridges</b>, the same idea as the H-bridge you built from transistors. The black fins pull heat away from it.',[544,48,82,104]],
+};
+(function(){
+  const svg = document.getElementById('tourSvg');
+  let s = drawL298N({caps:true});
+  for (const k in TOUR){ const [x,y,w,h] = TOUR[k][2]; s += `<rect class="hot" data-k="${k}" x="${x}" y="${y}" width="${w}" height="${h}" rx="4"/>`; }
+  svg.innerHTML = s;
+  svg.querySelectorAll('.hot').forEach(r=> r.addEventListener('click', ()=>{
+    svg.querySelectorAll('.hot').forEach(q=>q.classList.remove('sel'));
+    r.classList.add('sel');
+    const t = TOUR[r.dataset.k];
+    document.getElementById('tourT').innerHTML = t[0];
+    document.getElementById('tourB').innerHTML = t[1];
+  }));
+})();
+
+/* ---------------- animation helpers ---------------- */
+function setupCv(cv){ const ctx = cv.getContext('2d'); return ctx; }
+function rotate(el, deg){ el.setAttribute('transform', `rotate(${deg} ${el.querySelector('circle').getAttribute('cx')} ${el.querySelector('circle').getAttribute('cy')})`); }
+const MONO = '600 26px JetBrains Mono, monospace';
+
+/* ---- slide 2: recap ---- */
+const R = {v:128, ang:0, spd:0, t:0};
+const recapS = document.getElementById('recapS');
+recapS.oninput = ()=>{ R.v=+recapS.value; document.getElementById('recapV').textContent=R.v; document.getElementById('recapD').textContent=Math.round(R.v/255*100); };
+function tickRecap(dt){
+  const cv = document.getElementById('recapCv'), c = cv.getContext('2d'), W=cv.width, H=cv.height;
+  const duty = R.v/255;
+  R.t += dt;
+  c.clearRect(0,0,W,H);
+  c.strokeStyle='#2a323d'; c.lineWidth=2; c.beginPath(); c.moveTo(0,H-50); c.lineTo(W,H-50); c.stroke();
+  const hi=50, lo=H-50, per=200, off=(R.t*0.12)%per;
+  c.strokeStyle='#ffb347'; c.lineWidth=5; c.beginPath();
+  for(let x=-per; x<W+per; x+=per){
+    const x0=x-off, x1=x0+per*duty;
+    if (duty<=0){ c.moveTo(x0,lo); c.lineTo(x0+per,lo); continue; }
+    if (duty>=1){ c.moveTo(x0,hi); c.lineTo(x0+per,hi); continue; }
+    c.moveTo(x0,lo); c.lineTo(x0,hi); c.lineTo(x1,hi); c.lineTo(x1,lo); c.lineTo(x0+per,lo);
+  }
+  c.stroke();
+  const avg = lo-(lo-hi)*duty;
+  c.setLineDash([14,10]); c.strokeStyle='#5cff9d'; c.lineWidth=3; c.beginPath(); c.moveTo(0,avg); c.lineTo(W,avg); c.stroke(); c.setLineDash([]);
+  c.fillStyle='#5cff9d'; c.font=MONO; c.fillText('average', W-140, avg-10);
+  document.getElementById('recapLed').setAttribute('opacity', 0.08+0.92*duty);
+  R.spd += (duty*900 - R.spd)*Math.min(1, dt/250);
+  R.ang = (R.ang + R.spd*dt/1000)%360;
+  rotate(document.getElementById('recapWheel'), R.ang);
+}
+
+/* ---- slide 11: pulse sim ---- */
+const P = {on:200, off:200, t:0, w:0, ang:0, buf:[], acc:0};
+const WIN = 1000, SAMPLE = 0.5;   // ms window, ms per sample
+document.querySelectorAll('#pulseBtns .btn').forEach(b=> b.onclick = ()=>{
+  document.querySelectorAll('#pulseBtns .btn').forEach(q=>q.classList.remove('on')); b.classList.add('on');
+  P.on=+b.dataset.on; P.off=+b.dataset.off; P.t=0;
+  document.getElementById('pOn').textContent=P.on; document.getElementById('pOff').textContent=P.off;
+  document.getElementById('pDuty').textContent=Math.round(P.on/(P.on+P.off)*100);
+  document.getElementById('pHz').textContent=(1000/(P.on+P.off)).toFixed(1).replace(/\.0$/,'');
+});
+function tickPulse(dt){
+  const steps = Math.min(400, Math.round(dt/0.25));
+  for(let i=0;i<steps;i++){
+    P.t += 0.25;
+    const ph = P.t % (P.on+P.off), u = ph < P.on ? 1 : 0;
+    const tau = 60;                   // ms the motor needs to change speed
+    P.w += (u - P.w) * 0.25 / tau;
+    P.acc += 0.25;
+    if (P.acc >= SAMPLE){ P.acc -= SAMPLE; P.buf.push([u, P.w]); if (P.buf.length > WIN/SAMPLE) P.buf.shift(); }
+  }
+  P.ang = (P.ang + P.w*1100*dt/1000)%360;
+  rotate(document.getElementById('pulseWheel'), P.ang);
+  const cv = document.getElementById('pulseCv'), c = cv.getContext('2d'), W=cv.width, H=cv.height;
+  c.clearRect(0,0,W,H);
+  c.font=MONO; c.fillStyle='#9aa6b4';
+  c.fillText('POWER TO MOTOR (ENA)', 20, 34); c.fillText('MOTOR SPEED', 20, 300);
+  c.fillText('← last 1 second →', W-300, 34);
+  const n = P.buf.length, dx = W/(WIN/SAMPLE);
+  // wave
+  c.strokeStyle='#ffb347'; c.lineWidth=3; c.beginPath();
+  for(let i=0;i<n;i++){ const y = P.buf[i][0] ? 60 : 220; const x = W - (n-i)*dx; i? c.lineTo(x,y) : c.moveTo(x,y); }
+  c.stroke();
+  // speed
+  c.strokeStyle='#2a323d'; c.lineWidth=2; c.beginPath(); c.moveTo(0,520); c.lineTo(W,520); c.moveTo(0,320); c.lineTo(W,320); c.stroke();
+  c.strokeStyle='#5cff9d'; c.lineWidth=5; c.beginPath();
+  for(let i=0;i<n;i++){ const y = 520 - P.buf[i][1]*200; const x = W - (n-i)*dx; i? c.lineTo(x,y) : c.moveTo(x,y); }
+  c.stroke();
+  c.fillStyle='#6f7d8c'; c.font='500 22px JetBrains Mono, monospace'; c.fillText('full speed', W-150, 314); c.fillText('stopped', W-120, 548);
+}
+
+/* ---- slide 12: analogWrite ---- */
+const A = {v:128, ang:0, spd:0, t:0};
+const awS = document.getElementById('awS');
+function awUpdate(){
+  A.v=+awS.value; const d=A.v/255;
+  document.getElementById('awV').textContent=A.v;
+  document.getElementById('awD').textContent=Math.round(d*100);
+  document.getElementById('awVolt').textContent=(10*d).toFixed(1);
+  const st = document.getElementById('awStatus');
+  if (A.v===0) { st.textContent='stopped'; st.style.color='#9aa6b4'; }
+  else if (A.v<50) { st.textContent='humming, not turning'; st.style.color='#9aa6b4'; }
+  else if (A.v<=150) { st.textContent='turning: good car speed'; st.style.color='#5cff9d'; }
+  else { st.textContent='fast and hot: short bursts'; st.style.color='#ffb347'; }
+}
+awS.oninput = awUpdate; awUpdate();
+function tickAW(dt){
+  A.t += dt;
+  const cv = document.getElementById('awCv'), c = cv.getContext('2d'), W=cv.width, H=cv.height;
+  const duty=A.v/255, hi=50, lo=H-40, per=230, off=(A.t*0.1)%per;
+  c.clearRect(0,0,W,H);
+  c.font=MONO; c.fillStyle='#9aa6b4'; c.fillText('10 V', 12, hi+8); c.fillText('0 V', 12, lo+8);
+  c.save(); c.beginPath(); c.rect(90,0,W-90,H); c.clip();
+  c.strokeStyle='#ffb347'; c.lineWidth=5; c.beginPath();
+  for(let x=90-per; x<W+per; x+=per){
+    const x0=x-off, x1=x0+per*duty;
+    if (duty<=0){ c.moveTo(x0,lo); c.lineTo(x0+per,lo); continue; }
+    if (duty>=1){ c.moveTo(x0,hi); c.lineTo(x0+per,hi); continue; }
+    c.moveTo(x0,lo); c.lineTo(x0,hi); c.lineTo(x1,hi); c.lineTo(x1,lo); c.lineTo(x0+per,lo);
+  }
+  c.stroke();
+  const avg = lo-(lo-hi)*duty;
+  c.setLineDash([14,10]); c.strokeStyle='#5cff9d'; c.lineWidth=3; c.beginPath(); c.moveTo(90,avg); c.lineTo(W,avg); c.stroke(); c.setLineDash([]);
+  c.fillStyle='#5cff9d'; c.fillText('average '+(10*duty).toFixed(1)+' V', W-300, Math.max(30,avg-12));
+  c.restore();
+  const target = A.v<50 ? 0 : (A.v/255)*1000;
+  A.spd += (target - A.spd)*Math.min(1, dt/220);
+  A.ang = (A.ang + A.spd*dt/1000 + (A.v>0&&A.v<50 ? Math.sin(A.t/12)*0.6 : 0))%360;
+  rotate(document.getElementById('awWheel'), A.ang);
+}
+
+/* ---- slide 15: start/stop hysteresis ---- */
+const Hs = {v:0, moving:false, ang:0, spd:0, t:0, hist:[]};
+const hysS = document.getElementById('hysS');
+hysS.oninput = ()=>{
+  Hs.v=+hysS.value; document.getElementById('hysV').textContent=Hs.v;
+  if (!Hs.moving && Hs.v>=70) Hs.moving=true;
+  if (Hs.moving && Hs.v<45) Hs.moving=false;
+  const st=document.getElementById('hysStatus');
+  if (Hs.moving){ st.textContent='turning'; st.style.color='#5cff9d'; }
+  else if (Hs.v>0){ st.textContent='stopped… humming'; st.style.color='#ffb347'; }
+  else { st.textContent='stopped'; st.style.color='#9aa6b4'; }
+};
+function tickHys(dt){
+  Hs.t+=dt;
+  const target = Hs.moving ? Hs.v/255*1000 : 0;
+  Hs.spd += (target-Hs.spd)*Math.min(1,dt/200);
+  Hs.ang = (Hs.ang + Hs.spd*dt/1000 + (!Hs.moving&&Hs.v>0 ? Math.sin(Hs.t/10)*0.8 : 0))%360;
+  rotate(document.getElementById('hysWheel'), Hs.ang);
+  const cv=document.getElementById('hysCv'), c=cv.getContext('2d'), W=cv.width, H=cv.height;
+  c.clearRect(0,0,W,H);
+  const X = v=> 30 + v/255*(W-60);
+  c.fillStyle='#1d232c'; c.fillRect(30,70,W-60,50);
+  c.fillStyle='rgba(255,179,71,.25)'; c.fillRect(X(45),70,X(70)-X(45),50);
+  c.fillStyle='#5cff9d'; c.fillRect(X(Hs.v)-4,58,8,74);
+  c.font='600 22px JetBrains Mono, monospace';
+  c.fillStyle='#ffb347'; c.fillText('STOP 45',X(45)-110,40); c.fillText('START 70',X(70)+6,40);
+  c.strokeStyle='#ffb347'; c.lineWidth=3; c.beginPath(); c.moveTo(X(45),46); c.lineTo(X(45),130); c.moveTo(X(70),46); c.lineTo(X(70),130); c.stroke();
+  c.fillStyle='#9aa6b4'; c.fillText('0',X(0)-6,160); c.fillText('255',X(255)-40,160); c.fillText('knob value',W/2-60,160);
+  c.fillStyle='#9aa6b4'; c.font='500 19px JetBrains Mono, monospace'; c.fillText('shaded = it depends which way you came from', 30, 192);
+}
+
+/* ---- slide 16: steering ---- */
+const C = {L:0, R:0, x:0, y:0, th:Math.PI/2, trail:[]};
+const carL=document.getElementById('carL'), carR=document.getElementById('carR');
+function carSet(l,r){ C.L=l; C.R=r; carL.value=l; carR.value=r; document.getElementById('carLv').textContent=l; document.getElementById('carRv').textContent=r; }
+function carReset(){ C.x=0; C.y=-120; C.th=Math.PI/2; C.trail=[]; }
+carL.oninput=()=>carSet(+carL.value, C.R); carR.oninput=()=>carSet(C.L, +carR.value);
+document.getElementById('carReset').onclick=()=>{ carReset(); };
+document.querySelectorAll('#carBtns .btn').forEach(b=> b.onclick=()=>{
+  document.querySelectorAll('#carBtns .btn').forEach(q=>q.classList.remove('on')); b.classList.add('on');
+  carReset(); carSet(+b.dataset.l, +b.dataset.r);
+});
+carReset();
+function tickCar(dt){
+  const cv=document.getElementById('carCv'), c=cv.getContext('2d'), W=cv.width, H=cv.height;
+  const db = v => Math.abs(v)<50 ? 0 : v;
+  const vl=db(C.L)*0.9, vr=db(C.R)*0.9, track=70;   // px/s scale
+  const s = dt/1000;
+  const v=(vl+vr)/2, w=(vr-vl)/track;
+  C.th += w*s; C.x += v*Math.cos(C.th)*s; C.y += v*Math.sin(C.th)*s;
+  if (Math.abs(C.x)>W/2-30 || Math.abs(C.y)>H/2-30) carReset();
+  const last=C.trail[C.trail.length-1];
+  if (!last || Math.hypot(last[0]-C.x,last[1]-C.y)>3){ C.trail.push([C.x,C.y]); if(C.trail.length>900) C.trail.shift(); }
+  c.clearRect(0,0,W,H);
+  c.strokeStyle='#1a2029'; c.lineWidth=1;
+  for(let x=0;x<W;x+=70){ c.beginPath(); c.moveTo(x,0); c.lineTo(x,H); c.stroke(); }
+  for(let y=0;y<H;y+=70){ c.beginPath(); c.moveTo(0,y); c.lineTo(W,y); c.stroke(); }
+  const T = (x,y)=>[W/2+x, H/2-y];
+  c.strokeStyle='rgba(92,255,157,.6)'; c.lineWidth=4; c.beginPath();
+  C.trail.forEach((p,i)=>{ const [a,b]=T(p[0],p[1]); i?c.lineTo(a,b):c.moveTo(a,b); }); c.stroke();
+  const [cx,cy]=T(C.x,C.y);
+  c.save(); c.translate(cx,cy); c.rotate(-C.th);
+  c.fillStyle='#2b3440'; c.strokeStyle='#9aa6b4'; c.lineWidth=3;
+  c.fillRect(-44,-40,88,80); c.strokeRect(-44,-40,88,80);
+  c.fillStyle='#f2c200'; c.fillRect(-24,-58,40,16); c.fillRect(-24,42,40,16);
+  c.fillStyle='#5cff9d'; c.beginPath(); c.moveTo(56,0); c.lineTo(36,-16); c.lineTo(36,16); c.closePath(); c.fill();
+  c.restore();
+  c.font='600 24px JetBrains Mono, monospace'; c.fillStyle='#9aa6b4';
+  c.fillText('top view · arrow = front · yellow = wheels', 20, H-18);
+  if (C.L===0 && C.R===0) { c.fillStyle='#ffb347'; c.fillText('press a button or drag the sliders', 20, 36); }
+}
+
+/* ---------------- main loop: only animate the visible slide ---------------- */
+const TICKS = {};
+slides.forEach((s,i)=>{
+  if (s.querySelector('#recapCv')) TICKS[i]=tickRecap;
+  if (s.querySelector('#pulseCv')) TICKS[i]=tickPulse;
+  if (s.querySelector('#awCv')) TICKS[i]=tickAW;
+  if (s.querySelector('#hysCv')) TICKS[i]=tickHys;
+  if (s.querySelector('#carCv')) TICKS[i]=tickCar;
+});
+let lastT = performance.now();
+function frame(t){
+  const dt = Math.min(60, t-lastT); lastT=t;
+  const f = TICKS[cur]; if (f) { try{ f(dt); }catch(e){ console.error(e); } }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
